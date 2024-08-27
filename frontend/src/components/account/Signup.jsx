@@ -1,54 +1,54 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { Box, TextField, Button, styled, Typography } from '@mui/material';
 import AppLogo from '../../Images/Blog_App_Logo.png';
 import axios from 'axios';
 import { ToastContainer, toast } from 'react-toastify';
 import 'react-toastify/dist/ReactToastify.css';
 import { useNavigate } from 'react-router-dom';
-import { useState } from 'react';
+import Validation from '../validations/Validation.jsx'; // Import the Validation component
 
 export default function Signup() {
     const navigate = useNavigate();
     const [username, setUserName] = useState("");
     const [email, setEmail] = useState("");
     const [password, setPassword] = useState("");
-    const [usernameError, setUsernameError] = useState(false);
-    const [emailError, setEmailError] = useState(false);
-    const [passwordError, setPasswordError] = useState(false);
+
+    const { errors, setErrors, validateSignupForm } = Validation(); // Destructure the validation functions
 
     const signUpUser = async () => {
-        try {
-            const res = await axios.post('http://localhost:3000/user/signup', { username, email, password });
-            console.log(JSON.stringify(res.data));
-            createNotification(res.data.message);
-            
-            if (res.data.message === 'User successfully registered.') {
-                setUserName("");
-                setEmail("");
-                setPassword("");
-                setUsernameError(false);
-                setEmailError(false);
-                setPasswordError(false);
+        if (validateSignupForm(username, email, password)) { // Validate the form
+            try {
+                const res = await axios.post('http://localhost:3000/user/signup', { username, email, password });
+                console.log(JSON.stringify(res.data));
+                createNotification(res.data.message);
+
+                if (res.data.message === 'User successfully registered.') {
+                    setUserName("");
+                    setEmail("");
+                    setPassword("");
+                }
+
+                setTimeout(() => {
+                    navigate('/signin');
+                }, 1000);
+
+            } catch (error) {
+                console.log(error);
+                const message = error.response && error.response.data && error.response.data.message
+                    ? error.response.data.message
+                    : 'Something went wrong. Please try again later...';
+                createNotification(message);
+
+                if (message === 'Email already exists.') {
+                    setErrors((prevErrors) => ({ ...prevErrors, email: message }));
+                } else if (message === 'Password must have at least 8 characters.') {
+                    setErrors((prevErrors) => ({ ...prevErrors, password: message }));
+                } else if (message === 'Username already exists.') {
+                    setErrors((prevErrors) => ({ ...prevErrors, username: message }));
+                }
             }
-
-            setTimeout(() => {
-                navigate('/signin');
-            }, 1000);
-
-        } catch (error) {
-            console.log(error);
-            const message = error.response && error.response.data && error.response.data.message
-                ? error.response.data.message
-                : 'Something went wrong. Please try again later...';
-            createNotification(message);
-
-            if (message === 'Email already exists.' || message === 'Invalid Email.') {
-                setEmailError(true);
-            } else if (message === 'Password must have at least 8 characters.') {
-                setPasswordError(true);
-            } else if (message === 'Username already exists.') {
-                setUsernameError(true);
-            }
+        } else {
+            createNotification('Please fill all required fields correctly.');
         }
     };
 
@@ -56,15 +56,6 @@ export default function Signup() {
         switch (type) {
             case 'User successfully registered.':
                 toast.success('User successfully registered.');
-                break;
-            case 'Email already exists.':
-                toast.error('Email already exists.');
-                break;
-            case 'Password must have at least 8 characters.':
-                toast.error('Password must have at least 8 characters.');
-                break;
-            case 'Username already exists.':
-                toast.error('Username already exists.');
                 break;
             default:
                 toast.error(type);
@@ -87,11 +78,12 @@ export default function Signup() {
                         <TextField
                             variant="standard"
                             value={username}
-                            onChange={(e) => { setUserName(e.target.value); setUsernameError(false); }}
-                            error={usernameError}
+                            onChange={(e) => { setUserName(e.target.value); if (errors.username) setErrors(prev => ({ ...prev, username: '' })); }}
+                            error={Boolean(errors.username)}
+                            helperText={errors.username}
                             sx={{
                                 input: {
-                                    color: usernameError ? 'red' : 'inherit'
+                                    color: errors.username ? 'red' : 'inherit'
                                 }
                             }}
                             name='username'
@@ -100,11 +92,12 @@ export default function Signup() {
                         <TextField
                             variant="standard"
                             value={email}
-                            onChange={(e) => { setEmail(e.target.value); setEmailError(false); }}
-                            error={emailError}
+                            onChange={(e) => { setEmail(e.target.value); if (errors.email) setErrors(prev => ({ ...prev, email: '' })); }}
+                            error={Boolean(errors.email)}
+                            helperText={errors.email}
                             sx={{
                                 input: {
-                                    color: emailError ? 'red' : 'inherit'
+                                    color: errors.email ? 'red' : 'inherit'
                                 }
                             }}
                             name='email'
@@ -113,11 +106,12 @@ export default function Signup() {
                         <TextField
                             variant="standard"
                             value={password}
-                            onChange={(e) => { setPassword(e.target.value); setPasswordError(false); }}
-                            error={passwordError}
+                            onChange={(e) => { setPassword(e.target.value); if (errors.password) setErrors(prev => ({ ...prev, password: '' })); }}
+                            error={Boolean(errors.password)}
+                            helperText={errors.password}
                             sx={{
                                 input: {
-                                    color: passwordError ? 'red' : 'inherit'
+                                    color: errors.password ? 'red' : 'inherit'
                                 }
                             }}
                             name='password'
@@ -125,7 +119,7 @@ export default function Signup() {
                         />
                         <LoginButton
                             variant="contained"
-                            onClick={() => { signUpUser() }}
+                            onClick={signUpUser}
                         >
                             Sign Up
                         </LoginButton>
