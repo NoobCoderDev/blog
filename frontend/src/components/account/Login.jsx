@@ -1,54 +1,51 @@
-import React from 'react';
+import React, { useState, useContext } from 'react';
 import { Box, TextField, Button, styled, Typography } from '@mui/material';
 import AppLogo from '../../Images/Blog_App_Logo.png';
 import axios from 'axios';
 import { ToastContainer, toast } from 'react-toastify';
 import 'react-toastify/dist/ReactToastify.css';
 import { useNavigate } from 'react-router-dom';
-import { useState, useContext } from 'react';
 import { DataContext } from '../../context/DataProvider';
+import Validation from '../validations/Validation.jsx';
 
-export default function Login({isUserAuthenticated}) {
+export default function Login({ isUserAuthenticated }) {
     const navigate = useNavigate();
     const [email, setEmail] = useState("");
     const [password, setPassword] = useState("");
-    const [emailError, setEmailError] = useState(false);
-    const [passwordError, setPasswordError] = useState(false);
-    const {setAccount} = useContext(DataContext);
+    const { errors, setErrors, validateForm } = Validation();
+    const { setAccount } = useContext(DataContext);
 
     const signInUser = async () => {
-        axios.post('http://localhost:3000/user/signin', { email, password })
-            .then(res=>{
-                JSON.stringify(res.data);
+        if (validateForm(email, password)) {
+            try {
+                const res = await axios.post('http://localhost:3000/user/signin', { email, password });
                 sessionStorage.setItem('accessToken', `Bearer ${res.data.accessToken}`);
                 sessionStorage.setItem('refreshToken', `Bearer ${res.data.refreshToken}`);
-                setAccount({username : res.data.username, email : res.data.email});
+                setAccount({ username: res.data.username, email: res.data.email });
                 createNotification(res.data.message);
                 isUserAuthenticated(true);
                 setTimeout(() => {
                     navigate('/home');
                 }, 1000);
-            }).catch(error => {
-                console.log(error);
+            } catch (error) {
                 const message = error.response && error.response.data && error.response.data.message
                     ? error.response.data.message
                     : 'Something went wrong. Please try again later...';
                 createNotification(message);
 
-                if(message==='This email is not registered.'){
-                    setEmailError(true);
+                if (message === 'This email is not registered.') {
+                    setErrors((prevErrors) => ({ ...prevErrors, email: message }));
+                } else if (message === 'Invalid Password.') {
+                    setErrors((prevErrors) => ({ ...prevErrors, password: message }));
                 }
-                else if(message==='Invalid credentials.'){
-                    setPasswordError(true);
-                }
-            });
-    }
+            }
+        } else {
+            createNotification('Please fill all required fields correctly.');
+        }
+    };
 
     const createNotification = (type) => {
         switch (type) {
-            case 'error':
-                toast.error('Something went wrong. Please try again later...');
-                break;
             case 'User successfully logged in.':
                 toast.success('User successfully logged in.');
                 break;
@@ -73,35 +70,37 @@ export default function Login({isUserAuthenticated}) {
                     <Wrapper>
                         <TextField
                             variant="standard"
+                            label="Enter email"
                             onChange={(e) => {
                                 setEmail(e.target.value);
-                                setEmailError(false);
+                                if (errors.email) setErrors(prev => ({ ...prev, email: '' }));
                             }}
-                            error={emailError}
+                            error={Boolean(errors.email)}
+                            helperText={errors.email}
                             sx={{
                                 input: {
-                                    color: emailError ? 'red' : 'inherit'
+                                    color: errors.email ? 'red' : 'inherit'
                                 }
                             }}
-                            label="Enter email"
                         />
                         <TextField
                             variant="standard"
+                            label="Enter password"
                             onChange={(e) => {
                                 setPassword(e.target.value);
-                                setPasswordError(false);
+                                if (errors.password) setErrors(prev => ({ ...prev, password: '' }));
                             }}
-                            error={passwordError}
+                            error={Boolean(errors.password)}
+                            helperText={errors.password}
                             sx={{
                                 input: {
-                                    color: passwordError ? 'red' : 'inherit'
+                                    color: errors.password ? 'red' : 'inherit'
                                 }
                             }}
-                            label="Enter password"
                         />
                         <LoginButton
                             variant="contained"
-                            onClick={() => { signInUser() }}
+                            onClick={signInUser}
                         >
                             Login
                         </LoginButton>
